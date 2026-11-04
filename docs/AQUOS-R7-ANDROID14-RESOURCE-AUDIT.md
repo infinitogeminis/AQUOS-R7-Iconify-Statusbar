@@ -8,58 +8,67 @@ Device inputs retrieved from the user's Library folder:
 | SystemUI.apk | 40,380,837 bytes | `11e5e4c29a8fa2a7dc7c1b3747afa02f3dcd7492cfe456b2c422df91df549627` |
 | framework-res.apk | 35,383,675 bytes | `13a42b834e4005db3ff86ad5377d0e3112356b6f3bffb50337afe7d935ada0ae` |
 
-## Verified resource-name comparison
+## Iconify source confirmation
 
-### framework-res.apk — exact Gradicon drawable names exist
+Pinned Iconify source: v7.3.0, commit `ee491e884487959d364f07797c60adcd984ea948`.
 
-- Cellular: `ic_signal_cellular_0_4_bar` through `ic_signal_cellular_4_4_bar`
-- Also present: `ic_signal_cellular_0_5_bar` through `ic_signal_cellular_5_5_bar`
-- Wi-Fi: `ic_wifi_signal_0` through `ic_wifi_signal_4`
-- Wi-Fi transient animation resources are present.
+The selected Gradicon source XMLs are present in `app/src/main/res/drawable-v24/`:
+- `preview_gradicon_ic_signal_cellular_1_4_bar.xml` through `_4_4_bar.xml`
+- `preview_gradicon_ic_wifi_signal_1.xml` through `_4.xml`
 
-The second archive-level check confirms that the matching compiled drawable files physically exist as:
-- `res/drawable/ic_signal_cellular_0_4_bar.xml`
-- `res/drawable/ic_signal_cellular_4_4_bar.xml`
-- `res/drawable/ic_wifi_signal_0.xml`
-- `res/drawable/ic_wifi_signal_4.xml`
+The source files are 24dp vector drawables using AAPT gradient attributes. They can be used as source artwork for an overlay resource only after the target mapping and overlay policy are validated. Preview drawable names are not themselves target resource names.
 
-These names match the Iconify Gradicon preview/resource family. This confirms resource-name and file-presence compatibility, not yet runtime usage or overlay eligibility.
+## Exact AQUOS framework resource IDs — parsed
 
-### SystemUI.apk — names differ
+A custom parser for the Android resource-table sparse type-entry format successfully resolved these names in the `android` package of `framework-res.apk`:
 
-Present:
-- `ic_mobile_call_strength_0` through `ic_mobile_call_strength_4`
-- `ic_no_internet_wifi_signal_0` through `ic_no_internet_wifi_signal_4`
-- `ic_vowifi_tw`, `ic_vowifi_tw1`, `ic_vowifi_tw2`
-- Quick Settings signal/Wi-Fi resources.
+| Resource | Resource ID | Type |
+|---|---:|---|
+| `ic_signal_cellular_0_4_bar` | `0x01080557` | drawable |
+| `ic_signal_cellular_1_4_bar` | `0x01080559` | drawable |
+| `ic_signal_cellular_2_4_bar` | `0x0108055b` | drawable |
+| `ic_signal_cellular_3_4_bar` | `0x0108055d` | drawable |
+| `ic_signal_cellular_4_4_bar` | `0x0108055f` | drawable |
+| `ic_wifi_signal_0` | `0x01080589` | drawable |
+| `ic_wifi_signal_1` | `0x0108058a` | drawable |
+| `ic_wifi_signal_2` | `0x0108058b` | drawable |
+| `ic_wifi_signal_3` | `0x0108058c` | drawable |
+| `ic_wifi_signal_4` | `0x0108058d` | drawable |
 
-Not found in SystemUI APK under the expected names:
-- `ic_mobile_0_4_bar` … `ic_mobile_4_4_bar`
-- `ic_wifi_0` … `ic_wifi_4`
-- Iconify traffic drawables `stat_sys_network_traffic*` and `stat_sys_signal_stacked_*`
+All target entries are in the default configuration (the parsed ResTable_config has only the standard size field set). Their compiled XML resource files are present in the APK.
 
-A literal-string scan of SystemUI DEX/XML entries did not find the framework drawable names. This is inconclusive: framework resource references may be compiled as numeric resource IDs.
+## Runtime reference check
 
-## Resource-table / overlayability test — not yet passed
+A literal little-endian resource-ID scan of `SystemUI.apk/classes.dex` found direct references to:
+- `ic_wifi_signal_0` — 9 occurrences
+- `ic_wifi_signal_1` — 2 occurrences
+- `ic_wifi_signal_4` — 2 occurrences
 
-- Both APKs contain uncompressed `resources.arsc` tables; the original file hashes were rechecked after materialization.
-- A structural chunk scan found no `RES_TABLE_OVERLAYABLE` (0x0204) or `RES_TABLE_OVERLAYABLE_POLICY` (0x0205) chunks in either table.
-- The container does not have `aapt2`, `aapt`, or `apktool`; installing Androguard was blocked by unavailable package-network access.
-- A preliminary custom parser was not sufficient to resolve the target resource IDs/configurations. No IDs or overlay permissions are being guessed from it.
+This is strong evidence that SystemUI consumes the AQUOS framework Wi-Fi signal resource family. It does not yet identify every code path or establish that all five levels are used in the status bar.
 
-Therefore overlay eligibility is **unverified**. The existence of drawable XML files alone does not prove that Android 14 on this Sharp build will accept an RRO for them.
+No direct DEX references to the five `ic_signal_cellular_*_4_bar` IDs were found in SystemUI. The SystemUI APK has its own `ic_mobile_call_strength_0..4` resources. Therefore the cellular framework resources are not yet confirmed as the status-bar cellular source. Do not replace them until the cellular pipeline is traced further.
 
-## Current decision
+## Overlayability check — unresolved / blocking
 
-The framework-res drawables remain the leading candidate for Gradicon cellular/Wi-Fi, but no overlay has been generated or installed. Before building, the remaining mandatory checks are:
-1. Decode the resource tables with a trusted Android resource-table tool and record exact IDs, type, configurations and any overlayable declarations.
-2. Confirm through SystemUI resource references or runtime evidence that the status bar consumes these framework resources.
-3. Audit traffic indicators separately. No Iconify traffic drawable names were found in either APK's ordinary `res/` entries. Do not include traffic replacements until the real AQUOS resource owner and names are identified.
+- Neither resource table contains `RES_TABLE_OVERLAYABLE` (0x0204) or `RES_TABLE_OVERLAYABLE_POLICY` (0x0205) chunks.
+- This means the inspected APK tables do not declare named overlayable groups for these resources.
+- The exact Android 14 / Sharp overlay enforcement behavior for `android` target resources on this build has not been tested. Do not assume that a standard RRO can replace them.
+- No `aapt2`, `aapt`, or `apktool` binary is available in the current analysis container. A trusted Android build-tool decode / overlay compile test is still needed.
+
+## Traffic icons
+
+No Iconify traffic drawable names `stat_sys_network_traffic*` or `stat_sys_signal_stacked_*` were found in the ordinary `res/` entries of either APK. Traffic indicators remain out of scope until their real AQUOS resource owner and resource names are identified.
+
+## Decision and next tests
+
+1. **Wi-Fi:** framework resource IDs are confirmed and SystemUI DEX references them. Next test is whether Android 14 on this Sharp build permits an overlay of these `android` resources without an overlayable declaration. Do not yet install a module.
+2. **Cellular:** IDs are confirmed, but SystemUI's direct references point to a separate `ic_mobile_call_strength_*` family. Trace the active status-bar cellular pipeline before selecting replacement targets.
+3. **Traffic:** separate audit required.
 
 ## Safety/scope
 
 - No APK has been modified.
-- No installable ZIP has been built.
-- No device-side test has been performed.
+- No installable ZIP has been built or installed.
+- No physical-device test has been performed.
 - No IMS/VoLTE/VoWiFi, Colored Notifications, or Battery Colors resources are in scope.
 - Battery resources remain excluded.
