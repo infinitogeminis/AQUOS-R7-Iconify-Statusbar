@@ -48,12 +48,31 @@ This is strong evidence that SystemUI consumes the AQUOS framework Wi-Fi signal 
 
 No direct DEX references to the five `ic_signal_cellular_*_4_bar` IDs were found in SystemUI. The SystemUI APK has its own `ic_mobile_call_strength_0..4` resources. Therefore the cellular framework resources are not yet confirmed as the status-bar cellular source. Do not replace them until the cellular pipeline is traced further.
 
-## Overlayability check — unresolved / blocking
+## Overlay policy — AOSP rule confirmed; Sharp mount path still unverified
 
-- Neither resource table contains `RES_TABLE_OVERLAYABLE` (0x0204) or `RES_TABLE_OVERLAYABLE_POLICY` (0x0205) chunks.
-- This means the inspected APK tables do not declare named overlayable groups for these resources.
-- The exact Android 14 / Sharp overlay enforcement behavior for `android` target resources on this build has not been tested. Do not assume that a standard RRO can replace them.
-- No `aapt2`, `aapt`, or `apktool` binary is available in the current analysis container. A trusted Android build-tool decode / overlay compile test is still needed.
+The absence of `RES_TABLE_OVERLAYABLE` chunks is not, by itself, a hard blocker.
+
+AOSP Android 14 `idmap2` checks the target package as follows:
+- If the target APK defines no overlayable groups at all, a resource may be overlaid when the RRO fulfills a default partition/signature policy.
+- The current AOSP implementation includes `PRODUCT_PARTITION` and `SYSTEM_PARTITION` among those default policies.
+- If the target APK does define overlayable groups, a resource omitted from those groups cannot be overlaid by an ordinary RRO.
+
+Sources:
+- AOSP Android 14 idmap2 implementation: https://android.googlesource.com/platform/frameworks/base/+/f2d4156f5b0edb346347b22c963b7df24fa14096/cmds/idmap2/libidmap2/ResourceMapping.cpp
+- Android RRO documentation: https://source.android.com/docs/core/runtime/rros
+
+KernelSU's module layout supports a `system/product/` subtree, and its metamodule provides the systemless mounting layer. This makes a product-partition RRO a plausible implementation without modifying either target APK. It is not yet proven on this AQUOS build: the actual mounted path, SELinux labeling, OverlayConfig discovery, and idmap policy reported by the device must be verified.
+
+Important distinction:
+- An APK merely stored under `/data/adb/modules` is not automatically a preinstalled product overlay.
+- The RRO must actually be exposed to Android as a product-partition overlay (or otherwise fulfill the target's policy).
+- Android 11+ devices can use `/product/overlay/config/config.xml` to configure overlays. Existing Sharp overlay configuration and partition layout must be inspected before choosing the exact module layout.
+
+No test overlay has been installed on the phone. No installable ZIP has been built.
+
+## Current implementation decision
+
+Use a small standalone RRO APK, delivered through a KernelSU module, rather than modifying `SystemUI.apk` or `framework-res.apk`. First validate a single Wi-Fi resource in a controlled Android 14 environment and inspect the generated idmap. Only after that succeeds should the full Wi-Fi family be packaged. Cellular remains a separate mapping task because the SystemUI APK contains its own `ic_mobile_call_strength_*` family.
 
 ## Traffic icons
 
