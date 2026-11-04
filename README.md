@@ -1,16 +1,19 @@
 # AQUOS R7 — Iconify Statusbar
 
-Independent KernelSU module project adapting selected Iconify status-bar icon resources for the Sharp AQUOS R7 (A202SH), Android 14.
+Independent KernelSU module project adapting the Gradicon network/signal resources from Iconify for Sharp AQUOS R7 (A202SH), Android 14.
 
-## Scope and order
+## Stage 1 — Gradicon network indicators
 
-### Stage 1 — Gradicon
-- Wi-Fi signal icons
-- Cellular signal icons
-- Network traffic indicators
+Port only the relevant Gradicon resources:
+- Wi-Fi and cellular signal indicators
+- Network traffic arrows / activity indicators
+- Related connected, no-internet, and quick-settings signal states where the AQUOS resource map confirms them
 
-### Stage 2 — iOS 16 horizontal battery
-Begins only after Stage 1 is built, inspected, and validated on the device. Battery work remains a separate stage and release.
+Do not port unrelated icon families from the full Iconify pack. In particular, exclude battery resources and airplane/location icons.
+
+## Stage 2 — iOS 16 horizontal battery
+
+Begins only after Stage 1 is built, inspected, and validated on the device. It remains a separate implementation stage and release.
 
 ## Target environment
 - Sharp AQUOS R7 (A202SH)
@@ -23,20 +26,21 @@ This repository is independent of the user's other AQUOS R7 projects. It must no
 - Colored Notifications module
 - Battery Colors module
 
-No SystemUI.apk patching/replacement, partition flashing, or bootloader unlocking. Prefer a reversible KernelSU module and resource-overlay approach where supported by the device.
+No SystemUI.apk patching/replacement, partition flashing, or bootloader unlocking. Prefer reversible systemless resource overlays.
 
 ## Development checklist
 - [x] Repository created
-- [x] Project scope and isolation rules documented
-- [ ] Audit exact Gradicon source assets and application mechanism in Iconify upstream
-- [ ] Map source resources to AQUOS R7 SystemUI resources
-- [ ] Implement Stage 1 module
-- [ ] Build and inspect installable ZIP
+- [x] Scope and isolation rules documented
+- [x] Iconify v7.3.0 source revision pinned
+- [x] Gradicon's two upstream overlay families identified
+- [ ] Obtain AQUOS R7 target APK resource tables for exact compatibility mapping
+- [ ] Implement the minimal Gradicon overlay set (network/signal only)
+- [ ] Build and inspect KernelSU ZIP
 - [ ] Validate on device
 - [ ] Start Stage 2 only after Stage 1 passes
 
 ## Upstream
-- Iconify: https://github.com/Mahmud0808/Iconify
-- The exact upstream tag/commit and resource mapping must be recorded before implementation.
+- Iconify v7.3.0: https://github.com/Mahmud0808/Iconify/releases/tag/v7.3.0
+- Exact source commit: `ee491e884487959d364f07797c60adcd984ea948`
 
 **Release policy:** an untested build must never be described as ready for installation.
