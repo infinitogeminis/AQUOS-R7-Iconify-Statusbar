@@ -129,7 +129,47 @@ public final class Entry extends XposedModule {
                                 cellularTints.put(original, tint);
                                 ImageView image = cellularViews.get(original);
                                 if (image != null) {
-                                    Drawable custom = moduleResources.getDrawable(replacement).mutate();
+                                    Drawable current = image.getDrawable();
+                                    if (current != null && current != original) {
+                                        current.setTintList(tint);
+                                    }
+                                }
+                            }
+                            return result;
+                        });
+                tintHooks.add(drawableClass);
+                Log.i(TAG, "SignalDrawable tint hook installed: " + drawableClass.getName());
+            } catch (Throwable t) {
+                Log.w(TAG, "Could not hook SignalDrawable tint method: "
+                        + drawableClass.getName(), t);
+            }
+        }
+    }
+
+    private void applyCellularDrawable(Drawable signalDrawable, ImageView image) {
+        if (moduleResources == null || image == null) return;
+        try {
+            int packedState = signalDrawable.getLevel();
+            int state = (packedState >>> 16) & 0xff;
+            if (state != 0) {
+                if (image.getDrawable() != signalDrawable) image.setImageDrawable(signalDrawable);
+                return;
+            }
+
+            int bars = packedState & 0xff;
+            if (bars < 1) bars = 1;
+            if (bars > 4) bars = 4;
+
+            int replacement = getCellularReplacement(bars);
+            Drawable current = image.getDrawable();
+            if (current != null && current.getClass().getName().equals(
+                    "android.graphics.drawable.VectorDrawable")
+                    && current.getConstantState() == moduleResources.getDrawable(replacement)
+                            .getConstantState()) {
+                return;
+            }
+
+            Drawable custom = moduleResources.getDrawable(replacement).mutate();
             ColorStateList tint = cellularTints.get(signalDrawable);
             if (tint == null) {
                 try { tint = signalDrawable.getTintList(); } catch (Throwable ignored) { }
@@ -143,6 +183,15 @@ public final class Entry extends XposedModule {
             try {
                 if (image.getDrawable() != signalDrawable) image.setImageDrawable(signalDrawable);
             } catch (Throwable ignored) { }
+        }
+    }
+
+    private int getCellularReplacement(int bars) {
+        switch (bars) {
+            case 1: return R.drawable.gradicon_cellular_1_4_bar;
+            case 2: return R.drawable.gradicon_cellular_2_4_bar;
+            case 3: return R.drawable.gradicon_cellular_3_4_bar;
+            default: return R.drawable.gradicon_cellular_4_4_bar;
         }
     }
 
@@ -162,9 +211,7 @@ public final class Entry extends XposedModule {
     }
 
     private boolean isSignalDrawable(Drawable drawable) {
-        String name = drawable.getClass().getName();
-        return name.equals("com.android.settingslib.graph.SignalDrawable")
-                || name.endsWith(".SignalDrawable");
+        return drawable.getClass().getName().endsWith(".SignalDrawable");
     }
 
     private Resources createModuleResources() throws Exception {
