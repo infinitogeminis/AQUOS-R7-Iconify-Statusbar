@@ -183,8 +183,8 @@ public final class Entry extends XposedModule {
                 return;
             }
 
-            // SignalDrawable packs level in bits 8..15; low byte is numLevels (usually 4).
-            int bars = (packedState >>> 8) & 0xff;
+            // SignalDrawable stores the live bar level in the low byte; bits 8..15 are numLevels.
+            int bars = packedState & 0xff;
             if (bars <= 0) {
                 if (image.getDrawable() != signalDrawable) image.setImageDrawable(signalDrawable);
                 Log.i(TAG, "Keeping stock no-signal drawable; packedLevel=0x"
