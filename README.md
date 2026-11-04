@@ -1,51 +1,48 @@
-# AQUOS R7 — Iconify Statusbar
+# AQUOS R7 — Gradicon Statusbar
 
-Independent KernelSU module project adapting the Gradicon network/signal resources from Iconify for Sharp AQUOS R7 (A202SH), Android 14.
+Independent Gradicon port for Sharp AQUOS R7 (A202SH), Android 14. The implementation is a **libxposed API 102 module for Vector v2.2**. It is delivered as an APK and must be installed/enabled through Vector.
 
-## Choose icon styles
+## Current stage: Gradicon Wi-Fi
 
-[Open the visual gallery](docs/gallery/README.md): 16 Wi-Fi styles and 36 cellular signal styles from Iconify v7.3.0, including Gradicon. These are original-source preview shapes converted for comparison.
+The module hooks `android.widget.ImageView.setImageResource(int)` inside `com.android.systemui`. It replaces only framework resources named `ic_wifi_signal_1` through `ic_wifi_signal_4`, and only on the status-bar ImageView whose entry name is `wifi_signal`.
 
-## Stage 1 — Gradicon network indicators
+- Wi-Fi level 0 remains stock.
+- Traffic arrows remain stock.
+- Cellular icons are not included yet.
+- No SystemUI.apk or framework-res.apk is modified.
+- No standalone RRO or KernelSU overlay ZIP is produced by this workflow.
 
-Port only the relevant Gradicon resources:
-- Wi-Fi and cellular signal indicators
-- Network traffic arrows / activity indicators
-- Related connected, no-internet, and quick-settings signal states where the AQUOS resource map confirms them
+## Install route
 
-Do not port unrelated icon families from the full Iconify pack. In particular, exclude battery resources and airplane/location icons.
+1. Build/download the APK artifact from GitHub Actions.
+2. Install the APK as a module through Vector v2.2.
+3. Enable the module for `com.android.systemui` (scope is also declared in `META-INF/xposed/scope.list`).
+4. Activate it using Vector's module controls.
 
-## Stage 2 — iOS 16 horizontal battery
+Do not install the earlier standalone RRO/KernelSU test artifact. It is a different implementation and is superseded by this Vector module.
 
-Begins only after Stage 1 is built, inspected, and validated on the device. It remains a separate implementation stage and release.
+## Build
 
-## Target environment
-- Sharp AQUOS R7 (A202SH)
-- Android 14, reported build 03.00.11
-- KernelSU; integration target: Vector
+GitHub Actions workflow: `.github/workflows/build-gradicon-wifi.yml`.
 
-## Isolation rules
-This repository is independent of the user's other AQUOS R7 projects. It must not modify, replace, or depend on:
-- IMS / VoLTE / VoWiFi icon module
-- Colored Notifications module
-- Battery Colors module
+Artifact: `AQUOS-R7-Gradicon-WiFi-Vector-APK`.
 
-No SystemUI.apk patching/replacement, partition flashing, or bootloader unlocking. Prefer reversible systemless resource overlays.
+The workflow checks that the APK contains libxposed API 102 metadata, the SystemUI scope, and all four Gradicon Wi-Fi drawables.
 
-## Development checklist
-- [x] Repository created
-- [x] Scope and isolation rules documented
-- [x] Iconify v7.3.0 source revision pinned
-- [x] Gradicon's two upstream overlay families identified
-- [x] Visual gallery added: 16 Wi-Fi + 36 cellular styles
-- [x] Obtain and audit AQUOS R7 SystemUI.apk + framework-res.apk resource tables
-- [ ] Trace cellular status-bar resource use and validate a product-partition RRO path
-- [ ] Build and inspect KernelSU ZIP
-- [ ] Validate on device
-- [ ] Start Stage 2 only after Stage 1 passes
+## Device validation still required
+
+A successful APK build does not prove the hook matches the exact AQUOS SystemUI call path. The first device test must confirm the log tag `AQUOSR7Gradicon` reports hook initialization and resource replacement. If the stock icon remains, collect the module log before changing the hook.
+
+## Isolation
+
+This project is separate from:
+- IMS / VoLTE / VoWiFi icons
+- Colored Notifications
+- Battery Colors
+
+Stage 2 (Gradicon cellular signal and network traffic arrows) follows only after Wi-Fi is confirmed on the phone. The horizontal iOS 16 battery is a later, separate stage.
 
 ## Upstream
-- Iconify v7.3.0: https://github.com/Mahmud0808/Iconify/releases/tag/v7.3.0
-- Exact source commit: `ee491e884487959d364f07797c60adcd984ea948`
 
-**Release policy:** an untested build must never be described as ready for installation.
+- Iconify v7.3.0 source commit: `ee491e884487959d364f07797c60adcd984ea948`
+- Vector v2.2 uses libxposed API 102.
