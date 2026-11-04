@@ -3,6 +3,6 @@
     <application
         android:allowBackup="false"
         android:hasCode="true"
-        android:label="AQUOS R7 Gradicon Wi-Fi"
+        android:label="AQUOS R7 Gradicon Wi-Fi + Cellular"
         android:description="@string/module_description" />
 </manifest>
