@@ -70,7 +70,7 @@ jobs:
             done
             test "$found" -eq 1
           done
-          aapt dump badging "$APK" | grep -q "versionName='0.3.1'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep -q "versionName='0.3.1'"
           sha256sum "$APK" > app/build/outputs/apk/debug/SHA256SUMS.txt
       - name: Upload Vector APK
         uses: actions/upload-artifact@v4
