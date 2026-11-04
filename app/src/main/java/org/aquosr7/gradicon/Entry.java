@@ -161,14 +161,6 @@ public final class Entry extends XposedModule {
             if (bars > 4) bars = 4;
 
             int replacement = getCellularReplacement(bars);
-            Drawable current = image.getDrawable();
-            if (current != null && current.getClass().getName().equals(
-                    "android.graphics.drawable.VectorDrawable")
-                    && current.getConstantState() == moduleResources.getDrawable(replacement)
-                            .getConstantState()) {
-                return;
-            }
-
             Drawable custom = moduleResources.getDrawable(replacement).mutate();
             ColorStateList tint = cellularTints.get(signalDrawable);
             if (tint == null) {
