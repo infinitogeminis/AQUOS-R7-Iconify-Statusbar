@@ -1,12 +1,14 @@
-name: Build Gradicon Wi-Fi RRO test
+name: Build Gradicon Wi-Fi Vector module
 
 on:
   workflow_dispatch:
   push:
+    branches: [ main ]
     paths:
-      - 'overlay/**'
-      - 'module/**'
-      - 'scripts/**'
+      - 'app/**'
+      - 'build.gradle'
+      - 'settings.gradle'
+      - 'gradle.properties'
       - '.github/workflows/build-gradicon-wifi.yml'
 
 permissions:
@@ -15,71 +17,51 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      ANDROID_HOME: /usr/local/lib/android/sdk
-      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install Android platform and build tools
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+
+      - name: Install Android platform
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Build Vector module APK
+        run: gradle --no-daemon :app:assembleDebug
+
+      - name: Verify APK metadata and bundled Gradicon resources
         shell: bash
         run: |
           set -euo pipefail
-          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
-          if [ ! -x "$SDKMANAGER" ]; then
-            SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -path '*/bin/sdkmanager' -type f | sort -V | tail -n1)"
-          fi
-          test -x "$SDKMANAGER"
-          set +o pipefail
-          yes | "$SDKMANAGER" --licenses >/dev/null
-          set -o pipefail
-          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0"
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$APK"
+          unzip -l "$APK" | grep -q 'META-INF/xposed/module.prop'
+          unzip -p "$APK" META-INF/xposed/module.prop | grep -q 'targetApiVersion=102'
+          unzip -p "$APK" META-INF/xposed/scope.list | grep -q 'com.android.systemui'
+          for level in 1 2 3 4; do
+            unzip -l "$APK" | grep -q "gradicon_wifi_${level}."
+          done
+          sha256sum "$APK" > app/build/outputs/apk/debug/SHA256SUMS.txt
 
-      - name: Build RRO APK
-        shell: bash
-        run: |
-          set -euo pipefail
-          AAPT2="$ANDROID_HOME/build-tools/35.0.0/aapt2"
-          OUT="$GITHUB_WORKSPACE/out"
-          mkdir -p "$OUT/compiled"
-          "$AAPT2" compile --dir overlay/res -o "$OUT/resources.zip"
-          "$AAPT2" link \
-            -o "$OUT/AQUOS-R7-Gradicon-WiFi-RRO-unsigned.apk" \
-            --manifest overlay/AndroidManifest.xml \
-            -I "$ANDROID_HOME/platforms/android-35/android.jar" \
-            --min-sdk-version 34 \
-            --target-sdk-version 34 \
-            --no-resource-deduping \
-            --no-resource-removal \
-            "$OUT/resources.zip"
-          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -f 4 \
-            "$OUT/AQUOS-R7-Gradicon-WiFi-RRO-unsigned.apk" \
-            "$OUT/AQUOS-R7-Gradicon-WiFi-RRO.apk"
-          "$AAPT2" dump resources "$OUT/AQUOS-R7-Gradicon-WiFi-RRO.apk" > "$OUT/resources-dump.txt"
-          "$AAPT2" dump xmltree "$OUT/AQUOS-R7-Gradicon-WiFi-RRO.apk" --file AndroidManifest.xml > "$OUT/manifest-dump.txt"
-
-      - name: Assemble KernelSU module ZIP
-        shell: bash
-        run: |
-          set -euo pipefail
-          STAGE="$GITHUB_WORKSPACE/out/module"
-          mkdir -p "$STAGE/system/product/overlay"
-          cp module/module.prop "$STAGE/module.prop"
-          cp module/service.sh "$STAGE/service.sh"
-          chmod 0755 "$STAGE/service.sh"
-          cp out/AQUOS-R7-Gradicon-WiFi-RRO.apk "$STAGE/system/product/overlay/AQUOS-R7-Gradicon-WiFi.apk"
-          (cd "$STAGE" && zip -qr ../AQUOS-R7-Gradicon-WiFi-test.zip .)
-          sha256sum out/AQUOS-R7-Gradicon-WiFi-RRO.apk out/AQUOS-R7-Gradicon-WiFi-test.zip > out/SHA256SUMS.txt
-
-      - name: Upload build artifacts
+      - name: Upload Vector APK
         uses: actions/upload-artifact@v4
         with:
-          name: AQUOS-R7-Gradicon-WiFi-test
+          name: AQUOS-R7-Gradicon-WiFi-Vector-APK
           path: |
-            out/AQUOS-R7-Gradicon-WiFi-RRO.apk
-            out/AQUOS-R7-Gradicon-WiFi-test.zip
-            out/resources-dump.txt
-            out/manifest-dump.txt
-            out/SHA256SUMS.txt
+            app/build/outputs/apk/debug/app-debug.apk
+            app/build/outputs/apk/debug/SHA256SUMS.txt
           if-no-files-found: error
