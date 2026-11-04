@@ -3,12 +3,14 @@ package org.aquosr7.gradicon;
 import android.content.res.AssetManager;
 import android.content.res.ColorStateList;
 import android.content.res.Resources;
+import android.graphics.Paint;
 import android.graphics.drawable.Drawable;
 import android.util.Log;
 import android.view.View;
 import android.view.ViewParent;
 import android.widget.ImageView;
 
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.Collections;
 import java.util.Map;
@@ -175,7 +177,7 @@ public final class Entry extends XposedModule {
 
             int replacement = getCellularReplacement(bars);
             Drawable custom = moduleResources.getDrawable(replacement).mutate();
-            ColorStateList tint = cellularTints.get(signalDrawable);
+            ColorStateList tint = getSignalTint(signalDrawable);
             if (tint != null) custom.setTintList(tint);
             image.setImageDrawable(custom);
             Log.i(TAG, "Applied Gradicon cellular bars=" + bars
@@ -186,6 +188,25 @@ public final class Entry extends XposedModule {
                 if (image.getDrawable() != signalDrawable) image.setImageDrawable(signalDrawable);
             } catch (Throwable ignored) { }
         }
+    }
+
+    private ColorStateList getSignalTint(Drawable signalDrawable) {
+        ColorStateList tint = cellularTints.get(signalDrawable);
+        if (tint != null) return tint;
+        Class<?> type = signalDrawable.getClass();
+        while (type != null) {
+            try {
+                Field field = type.getDeclaredField("mForegroundPaint");
+                field.setAccessible(true);
+                Object value = field.get(signalDrawable);
+                if (value instanceof Paint) {
+                    return ColorStateList.valueOf(((Paint) value).getColor());
+                }
+            } catch (Throwable ignored) { }
+            type = type.getSuperclass();
+        }
+        Log.w(TAG, "SignalDrawable tint unavailable; using vector's source colors");
+        return null;
     }
 
     private int getCellularReplacement(int bars) {
