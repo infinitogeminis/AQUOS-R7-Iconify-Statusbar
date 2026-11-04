@@ -7,7 +7,6 @@ import android.graphics.Paint;
 import android.graphics.drawable.Drawable;
 import android.util.Log;
 import android.view.View;
-import android.view.ViewParent;
 import android.widget.ImageView;
 
 import java.lang.ref.WeakReference;
@@ -236,6 +235,7 @@ public final class Entry extends XposedModule {
         if (moduleResources == null || !isStatusBarMobileSignal(image)) return 0;
         try {
             String name = image.getResources().getResourceEntryName(sourceId);
+            Log.i(TAG, "mobile_signal setImageResource source=" + name);
             switch (name) {
                 case "ic_signal_cellular_1_4_bar": return R.drawable.gradicon_cellular_1_4_bar;
                 case "ic_signal_cellular_2_4_bar": return R.drawable.gradicon_cellular_2_4_bar;
