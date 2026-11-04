@@ -33,26 +33,43 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.7'
+      - name: Verify source targets SignalDrawable level updates
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC="app/src/main/java/org/aquosr7/gradicon/Entry.java"
+          grep -Fq 'Drawable.class.getDeclaredMethod("setLevel", int.class)' "$SRC"
+          grep -Fq 'setImageDrawable' "$SRC"
+          grep -Fq 'SignalDrawable' "$SRC"
+          grep -Fq 'mobile_signal' "$SRC"
+          grep -Fq 'getCellularReplacement' "$SRC"
+          ! grep -Fq 'CELLULAR_VIEW_ID.equals(view)' "$SRC"
+          grep -Fq "versionName '0.3.1'" app/build.gradle
       - name: Build Vector module APK
         run: gradle --no-daemon :app:assembleDebug
-      - name: Verify APK metadata and bundled Gradicon resources
+      - name: Verify APK metadata, hook code and bundled resources
         shell: bash
         run: |
           set -euo pipefail
           APK="app/build/outputs/apk/debug/app-debug.apk"
           test -s "$APK"
-          unzip -l "$APK" | grep -q 'META-INF/xposed/module.prop'
+          unzip -t "$APK"
           unzip -p "$APK" META-INF/xposed/module.prop | grep -q 'targetApiVersion=102'
-          unzip -p "$APK" META-INF/xposed/scope.list | grep -q 'com.android.systemui'
+          unzip -p "$APK" META-INF/xposed/scope.list | grep -qx 'com.android.systemui'
+          unzip -p "$APK" META-INF/xposed/java_init.list | grep -qx 'org.aquosr7.gradicon.Entry'
           for level in 1 2 3 4; do
             unzip -l "$APK" | grep -q "gradicon_wifi_${level}."
             unzip -l "$APK" | grep -q "gradicon_cellular_${level}_4_bar."
           done
+          unzip -p "$APK" classes.dex | strings | grep -q 'aquosr7-gradicon-cellular-level'
+          unzip -p "$APK" classes.dex | strings | grep -q 'SignalDrawable'
+          unzip -p "$APK" classes.dex | strings | grep -q 'Applied Gradicon cellular bars='
+          aapt dump badging "$APK" | grep -q "versionName='0.3.1'"
           sha256sum "$APK" > app/build/outputs/apk/debug/SHA256SUMS.txt
       - name: Upload Vector APK
         uses: actions/upload-artifact@v4
         with:
-          name: AQUOS-R7-Gradicon-WiFi-Cellular-Vector-APK
+          name: AQUOS-R7-Gradicon-WiFi-Cellular-Vector-v0.3.1
           path: |
             app/build/outputs/apk/debug/app-debug.apk
             app/build/outputs/apk/debug/SHA256SUMS.txt
