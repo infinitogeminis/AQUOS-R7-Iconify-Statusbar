@@ -42,9 +42,13 @@ jobs:
           grep -Fq 'setImageDrawable' "$SRC"
           grep -Fq 'SignalDrawable' "$SRC"
           grep -Fq 'mobile_signal' "$SRC"
+          grep -Fq 'getCellularResourceReplacement' "$SRC"
+          grep -Fq 'ImageView.setImageResource hook installed for Wi-Fi + cellular resources' "$SRC"
+          grep -Fq 'mobile_signal received drawable class=' "$SRC"
+          ! grep -Fq 'MOBILE_VIEW_CLASS_SUFFIX' "$SRC"
           grep -Fq 'getCellularReplacement' "$SRC"
           ! grep -Fq 'CELLULAR_VIEW_ID.equals(view)' "$SRC"
-          grep -Fq "versionName '0.3.1'" app/build.gradle
+          grep -Fq "versionName '0.3.2'" app/build.gradle
       - name: Build Vector module APK
         run: gradle --no-daemon :app:assembleDebug
       - name: Verify APK metadata, hook code and bundled resources
@@ -70,12 +74,12 @@ jobs:
             done
             test "$found" -eq 1
           done
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep -q "versionName='0.3.1'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep -q "versionName='0.3.2'"
           sha256sum "$APK" > app/build/outputs/apk/debug/SHA256SUMS.txt
       - name: Upload Vector APK
         uses: actions/upload-artifact@v4
         with:
-          name: AQUOS-R7-Gradicon-WiFi-Cellular-Vector-v0.3.1
+          name: AQUOS-R7-Gradicon-WiFi-Cellular-Vector-v0.3.2
           path: |
             app/build/outputs/apk/debug/app-debug.apk
             app/build/outputs/apk/debug/SHA256SUMS.txt
