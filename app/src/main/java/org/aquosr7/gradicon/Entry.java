@@ -27,7 +27,6 @@ public final class Entry extends XposedModule {
     private static final String SYSTEM_UI = "com.android.systemui";
     private static final String WIFI_VIEW_ID = "wifi_signal";
     private static final String CELLULAR_VIEW_ID = "mobile_signal";
-    private static final String MOBILE_VIEW_CLASS_SUFFIX = ".StatusBarMobileView";
 
     private final Map<Drawable, WeakReference<ImageView>> cellularViews =
             Collections.synchronizedMap(new WeakHashMap<>());
@@ -35,6 +34,8 @@ public final class Entry extends XposedModule {
             Collections.synchronizedMap(new WeakHashMap<>());
     private final Set<Class<?>> tintHooks =
             Collections.newSetFromMap(new WeakHashMap<>());
+    private final Set<String> loggedCellularDrawableClasses =
+            Collections.newSetFromMap(new java.util.concurrent.ConcurrentHashMap<String, Boolean>());
     private Resources moduleResources;
 
     @Override
@@ -54,7 +55,7 @@ public final class Entry extends XposedModule {
         Method method = ImageView.class.getDeclaredMethod("setImageResource", int.class);
         method.setAccessible(true);
         hook(method)
-                .setId("aquosr7-gradicon-wifi-image-resource")
+                .setId("aquosr7-gradicon-image-resource-wifi-cellular")
                 .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
                 .intercept(chain -> {
                     Object receiver = chain.getThisObject();
@@ -62,13 +63,21 @@ public final class Entry extends XposedModule {
                     ImageView image = (ImageView) receiver;
                     int sourceId = (Integer) chain.getArg(0);
                     int replacement = getWifiReplacement(image, sourceId);
-                    if (replacement == 0) return chain.proceed();
-                    Drawable drawable = moduleResources.getDrawable(replacement);
-                    image.setImageDrawable(drawable.mutate());
-                    Log.i(TAG, "Applied Gradicon Wi-Fi view=" + viewName(image));
-                    return null;
+                    if (replacement != 0) {
+                        image.setImageDrawable(moduleResources.getDrawable(replacement).mutate());
+                        Log.i(TAG, "Applied Gradicon Wi-Fi view=" + viewName(image));
+                        return null;
+                    }
+                    int cellularReplacement = getCellularResourceReplacement(image, sourceId);
+                    if (cellularReplacement != 0) {
+                        String sourceName = image.getResources().getResourceEntryName(sourceId);
+                        image.setImageDrawable(moduleResources.getDrawable(cellularReplacement).mutate());
+                        Log.i(TAG, "Applied Gradicon cellular resource view=mobile_signal source=" + sourceName);
+                        return null;
+                    }
+                    return chain.proceed();
                 });
-        Log.i(TAG, "Wi-Fi hook installed");
+        Log.i(TAG, "ImageView.setImageResource hook installed for Wi-Fi + cellular resources");
     }
 
     private void installCellularHooks() throws Exception {
@@ -85,6 +94,12 @@ public final class Entry extends XposedModule {
                     if (receiver instanceof ImageView && argument instanceof Drawable) {
                         ImageView image = (ImageView) receiver;
                         Drawable drawable = (Drawable) argument;
+                        if (isStatusBarMobileSignal(image)) {
+                            String drawableClass = drawable.getClass().getName();
+                            if (loggedCellularDrawableClasses.add(drawableClass)) {
+                                Log.i(TAG, "mobile_signal received drawable class=" + drawableClass);
+                            }
+                        }
                         if (isStatusBarMobileSignal(image) && isSignalDrawable(drawable)) {
                             cellularViews.put(drawable, new WeakReference<>(image));
                             installTintHook(drawable.getClass());
@@ -217,6 +232,22 @@ public final class Entry extends XposedModule {
         return null;
     }
 
+    private int getCellularResourceReplacement(ImageView image, int sourceId) {
+        if (moduleResources == null || !isStatusBarMobileSignal(image)) return 0;
+        try {
+            String name = image.getResources().getResourceEntryName(sourceId);
+            switch (name) {
+                case "ic_signal_cellular_1_4_bar": return R.drawable.gradicon_cellular_1_4_bar;
+                case "ic_signal_cellular_2_4_bar": return R.drawable.gradicon_cellular_2_4_bar;
+                case "ic_signal_cellular_3_4_bar": return R.drawable.gradicon_cellular_3_4_bar;
+                case "ic_signal_cellular_4_4_bar": return R.drawable.gradicon_cellular_4_4_bar;
+                default: return 0;
+            }
+        } catch (Throwable ignored) {
+            return 0;
+        }
+    }
+
     private int getCellularReplacement(int bars) {
         switch (bars) {
             case 1: return R.drawable.gradicon_cellular_1_4_bar;
@@ -229,20 +260,15 @@ public final class Entry extends XposedModule {
     private boolean isStatusBarMobileSignal(ImageView image) {
         if (image.getId() == View.NO_ID) return false;
         try {
-            if (!CELLULAR_VIEW_ID.equals(
-                    image.getResources().getResourceEntryName(image.getId()))) return false;
-            ViewParent parent = image.getParent();
-            while (parent != null) {
-                if (parent.getClass().getName().endsWith(MOBILE_VIEW_CLASS_SUFFIX)) return true;
-                if (parent instanceof View) parent = ((View) parent).getParent();
-                else break;
-            }
-        } catch (Throwable ignored) { }
-        return false;
+            return CELLULAR_VIEW_ID.equals(
+                    image.getResources().getResourceEntryName(image.getId()));
+        } catch (Throwable ignored) {
+            return false;
+        }
     }
 
     private boolean isSignalDrawable(Drawable drawable) {
-        return drawable.getClass().getName().endsWith(".SignalDrawable");
+        return drawable.getClass().getName().endsWith("SignalDrawable");
     }
 
     private Resources createModuleResources() throws Exception {
