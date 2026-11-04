@@ -2,6 +2,10 @@
 
 Independent KernelSU module project adapting the Gradicon network/signal resources from Iconify for Sharp AQUOS R7 (A202SH), Android 14.
 
+## Choose icon styles
+
+[Open the visual gallery](docs/gallery/README.md): 16 Wi-Fi styles and 36 cellular signal styles from Iconify v7.3.0, including Gradicon. These are original-source preview shapes converted for comparison.
+
 ## Stage 1 — Gradicon network indicators
 
 Port only the relevant Gradicon resources:
@@ -33,6 +37,7 @@ No SystemUI.apk patching/replacement, partition flashing, or bootloader unlockin
 - [x] Scope and isolation rules documented
 - [x] Iconify v7.3.0 source revision pinned
 - [x] Gradicon's two upstream overlay families identified
+- [x] Visual gallery added: 16 Wi-Fi + 36 cellular styles
 - [ ] Obtain AQUOS R7 target APK resource tables for exact compatibility mapping
 - [ ] Implement the minimal Gradicon overlay set (network/signal only)
 - [ ] Build and inspect KernelSU ZIP
