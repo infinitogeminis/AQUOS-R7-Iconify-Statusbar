@@ -10,6 +10,7 @@ import android.view.View;
 import android.view.ViewParent;
 import android.widget.ImageView;
 
+import java.lang.ref.WeakReference;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.Collections;
@@ -28,7 +29,7 @@ public final class Entry extends XposedModule {
     private static final String CELLULAR_VIEW_ID = "mobile_signal";
     private static final String MOBILE_VIEW_CLASS_SUFFIX = ".StatusBarMobileView";
 
-    private final Map<Drawable, ImageView> cellularViews =
+    private final Map<Drawable, WeakReference<ImageView>> cellularViews =
             Collections.synchronizedMap(new WeakHashMap<>());
     private final Map<Drawable, ColorStateList> cellularTints =
             Collections.synchronizedMap(new WeakHashMap<>());
@@ -85,7 +86,7 @@ public final class Entry extends XposedModule {
                         ImageView image = (ImageView) receiver;
                         Drawable drawable = (Drawable) argument;
                         if (isStatusBarMobileSignal(image) && isSignalDrawable(drawable)) {
-                            cellularViews.put(drawable, image);
+                            cellularViews.put(drawable, new WeakReference<>(image));
                             installTintHook(drawable.getClass());
                             applyCellularDrawable(drawable, image);
                             Log.i(TAG, "Bound SignalDrawable to status-bar mobile_signal");
@@ -104,7 +105,7 @@ public final class Entry extends XposedModule {
                     Object receiver = chain.getThisObject();
                     if (receiver instanceof Drawable) {
                         Drawable drawable = (Drawable) receiver;
-                        ImageView image = cellularViews.get(drawable);
+                        ImageView image = getCellularView(drawable);
                         if (image != null) applyCellularDrawable(drawable, image);
                     }
                     return result;
@@ -139,7 +140,7 @@ public final class Entry extends XposedModule {
                                         ? (ColorStateList) argument : null;
                                 if (tint == null) cellularTints.remove(original);
                                 else cellularTints.put(original, tint);
-                                ImageView image = cellularViews.get(original);
+                                ImageView image = getCellularView(original);
                                 if (image != null) {
                                     Drawable current = image.getDrawable();
                                     if (current != null && current != original) {
@@ -190,6 +191,11 @@ public final class Entry extends XposedModule {
                 if (image.getDrawable() != signalDrawable) image.setImageDrawable(signalDrawable);
             } catch (Throwable ignored) { }
         }
+    }
+
+    private ImageView getCellularView(Drawable signalDrawable) {
+        WeakReference<ImageView> reference = cellularViews.get(signalDrawable);
+        return reference == null ? null : reference.get();
     }
 
     private ColorStateList getSignalTint(Drawable signalDrawable) {
