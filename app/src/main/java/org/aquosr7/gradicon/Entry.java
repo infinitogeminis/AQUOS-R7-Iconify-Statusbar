@@ -157,7 +157,12 @@ public final class Entry extends XposedModule {
             }
 
             int bars = packedState & 0xff;
-            if (bars < 1) bars = 1;
+            if (bars <= 0) {
+                if (image.getDrawable() != signalDrawable) image.setImageDrawable(signalDrawable);
+                Log.i(TAG, "Keeping stock no-signal drawable; packedLevel=0x"
+                        + Integer.toHexString(packedState));
+                return;
+            }
             if (bars > 4) bars = 4;
 
             int replacement = getCellularReplacement(bars);
