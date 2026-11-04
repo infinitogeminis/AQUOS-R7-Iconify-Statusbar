@@ -61,9 +61,24 @@ jobs:
             unzip -l "$APK" | grep -q "gradicon_wifi_${level}."
             unzip -l "$APK" | grep -q "gradicon_cellular_${level}_4_bar."
           done
-          unzip -p "$APK" classes.dex | strings | grep -q 'aquosr7-gradicon-cellular-level'
-          unzip -p "$APK" classes.dex | strings | grep -q 'SignalDrawable'
-          unzip -p "$APK" classes.dex | strings | grep -q 'Applied Gradicon cellular bars='
+          for marker in 'aquosr7-gradicon-cellular-level' 'SignalDrawable' 'Applied Gradicon cellular bars='; do
+            found=0
+            while IFS= read -r dex; do
+              if unzip -p "$APK" "$dex" | strings | grep -Fq "$marker"; then found=1; break; fi
+            done < <(unzip -Z1 "$APK" | grep -E '^classes([0-9]+)?\\.dex
+          aapt dump badging "$APK" | grep -q "versionName='0.3.1'"
+          sha256sum "$APK" > app/build/outputs/apk/debug/SHA256SUMS.txt
+      - name: Upload Vector APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: AQUOS-R7-Gradicon-WiFi-Cellular-Vector-v0.3.1
+          path: |
+            app/build/outputs/apk/debug/app-debug.apk
+            app/build/outputs/apk/debug/SHA256SUMS.txt
+          if-no-files-found: error
+)
+            test "$found" -eq 1
+          done
           aapt dump badging "$APK" | grep -q "versionName='0.3.1'"
           sha256sum "$APK" > app/build/outputs/apk/debug/SHA256SUMS.txt
       - name: Upload Vector APK
