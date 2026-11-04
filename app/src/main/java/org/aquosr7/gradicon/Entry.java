@@ -107,6 +107,14 @@ public final class Entry extends XposedModule {
                     }
                     return result;
                 });
+        try {
+            Class<?> signalClass = Class.forName(
+                    "com.android.settingslib.graph.SignalDrawable", false,
+                    Entry.class.getClassLoader());
+            installTintHook(signalClass);
+        } catch (Throwable t) {
+            Log.w(TAG, "Could not preload AOSP SignalDrawable tint hook", t);
+        }
         Log.i(TAG, "Cellular hooks installed: ImageView binding + Drawable.setLevel");
     }
 
@@ -168,9 +176,6 @@ public final class Entry extends XposedModule {
             int replacement = getCellularReplacement(bars);
             Drawable custom = moduleResources.getDrawable(replacement).mutate();
             ColorStateList tint = cellularTints.get(signalDrawable);
-            if (tint == null) {
-                try { tint = signalDrawable.getTintList(); } catch (Throwable ignored) { }
-            }
             if (tint != null) custom.setTintList(tint);
             image.setImageDrawable(custom);
             Log.i(TAG, "Applied Gradicon cellular bars=" + bars
