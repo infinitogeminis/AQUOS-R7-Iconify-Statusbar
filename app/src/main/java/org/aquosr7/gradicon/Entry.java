@@ -24,7 +24,7 @@ public final class Entry extends XposedModule {
     private static final String SYSTEM_UI = "com.android.systemui";
     private static final String WIFI_VIEW_ID = "wifi_signal";
     private static final String CELLULAR_VIEW_ID = "mobile_signal";
-    private static final String MOBILE_VIEW_CLASS = "com.android.systemui.statusbar.StatusBarMobileView";
+    private static final String MOBILE_VIEW_CLASS_SUFFIX = ".StatusBarMobileView";
 
     private final Map<Drawable, ImageView> cellularViews =
             Collections.synchronizedMap(new WeakHashMap<>());
@@ -129,61 +129,7 @@ public final class Entry extends XposedModule {
                                 cellularTints.put(original, tint);
                                 ImageView image = cellularViews.get(original);
                                 if (image != null) {
-                                    Drawable current = image.getDrawable();
-                                    if (current != null && current != original) {
-                                        current.setTintList(tint);
-                                    }
-                                }
-                            }
-                            return result;
-                        });
-                tintHooks.add(drawableClass);
-                Log.i(TAG, "SignalDrawable tint hook installed: " + drawableClass.getName());
-            } catch (Throwable t) {
-                Log.w(TAG, "Could not hook SignalDrawable tint method: "
-                        + drawableClass.getName(), t);
-            }
-        }
-    }
-
-    private void applyCellularDrawable(Drawable signalDrawable, ImageView image) {
-        if (moduleResources == null || image == null) return;
-        try {
-            int packedState = signalDrawable.getLevel();
-            int state = (packedState >>> 16) & 0xff;
-            if (state != 0) {
-                if (image.getDrawable() != signalDrawable) {
-                    image.setImageDrawable(signalDrawable);
-                }
-                return;
-            }
-
-            int bars = packedState & 0xff;
-            if (bars < 1) bars = 1;
-            if (bars > 4) bars = 4;
-
-            int replacement;
-            switch (bars) {
-                case 1: replacement = R.drawable.gradicon_cellular_1_4_bar; break;
-                case 2: replacement = R.drawable.gradicon_cellular_2_4_bar; break;
-                case 3: replacement = R.drawable.gradicon_cellular_3_4_bar; break;
-                default: replacement = R.drawable.gradicon_cellular_4_4_bar; break;
-            }
-
-            Drawable current = image.getDrawable();
-            if (current == null || current.getConstantState() == null
-                    || current.getClass() != android.graphics.drawable.VectorDrawable.class) {
-                // Always install a fresh module drawable when the source is not our vector.
-            } else {
-                // The level can update frequently; avoid replacing an already installed vector
-                // when it is already the requested Gradicon level.
-                Object marker = current.getConstantState();
-                if (current.getBounds().equals(signalDrawable.getBounds())) {
-                    // Continue below: the selected resource may have changed.
-                }
-            }
-
-            Drawable custom = moduleResources.getDrawable(replacement).mutate();
+                                    Drawable custom = moduleResources.getDrawable(replacement).mutate();
             ColorStateList tint = cellularTints.get(signalDrawable);
             if (tint == null) {
                 try { tint = signalDrawable.getTintList(); } catch (Throwable ignored) { }
@@ -207,7 +153,7 @@ public final class Entry extends XposedModule {
                     image.getResources().getResourceEntryName(image.getId()))) return false;
             ViewParent parent = image.getParent();
             while (parent != null) {
-                if (MOBILE_VIEW_CLASS.equals(parent.getClass().getName())) return true;
+                if (parent.getClass().getName().endsWith(MOBILE_VIEW_CLASS_SUFFIX)) return true;
                 if (parent instanceof View) parent = ((View) parent).getParent();
                 else break;
             }
