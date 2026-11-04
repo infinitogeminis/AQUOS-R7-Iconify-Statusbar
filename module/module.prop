@@ -1,0 +1,6 @@
+id=aquosr7_gradicon_statusbar
+name=AQUOS R7 Gradicon Statusbar
+version=v0.1.0-wifi-test
+versionCode=100
+author=InfinityGemini
+description=Experimental Wi-Fi Gradicon RRO for AQUOS R7 Android 14. Cellular icons are not included yet.
