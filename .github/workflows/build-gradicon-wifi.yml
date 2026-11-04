@@ -1,4 +1,4 @@
-name: Build Gradicon Wi-Fi Vector module
+name: Build Gradicon Wi-Fi + Cellular Vector module
 
 on:
   workflow_dispatch:
@@ -14,29 +14,23 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
         with:
           packages: platform-tools
-
       - name: Install Android platform
         run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
-
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.7'
-
       - name: Build Vector module APK
         run: gradle --no-daemon :app:assembleDebug
-
       - name: Verify APK metadata and bundled Gradicon resources
         shell: bash
         run: |
@@ -48,13 +42,13 @@ jobs:
           unzip -p "$APK" META-INF/xposed/scope.list | grep -q 'com.android.systemui'
           for level in 1 2 3 4; do
             unzip -l "$APK" | grep -q "gradicon_wifi_${level}."
+            unzip -l "$APK" | grep -q "gradicon_cellular_${level}_4_bar."
           done
           sha256sum "$APK" > app/build/outputs/apk/debug/SHA256SUMS.txt
-
       - name: Upload Vector APK
         uses: actions/upload-artifact@v4
         with:
-          name: AQUOS-R7-Gradicon-WiFi-Vector-APK
+          name: AQUOS-R7-Gradicon-WiFi-Cellular-Vector-APK
           path: |
             app/build/outputs/apk/debug/app-debug.apk
             app/build/outputs/apk/debug/SHA256SUMS.txt
