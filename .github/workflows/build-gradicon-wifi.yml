@@ -48,7 +48,7 @@ jobs:
           ! grep -Fq 'MOBILE_VIEW_CLASS_SUFFIX' "$SRC"
           grep -Fq 'getCellularReplacement' "$SRC"
           ! grep -Fq 'CELLULAR_VIEW_ID.equals(view)' "$SRC"
-          grep -Fq "versionName '0.3.2'" app/build.gradle
+          grep -Fq "versionName '0.3.3'" app/build.gradle
       - name: Build Vector module APK
         run: gradle --no-daemon :app:assembleDebug
       - name: Verify APK metadata, hook code and bundled resources
@@ -61,6 +61,10 @@ jobs:
           unzip -p "$APK" META-INF/xposed/module.prop | grep -q 'targetApiVersion=102'
           unzip -p "$APK" META-INF/xposed/scope.list | grep -qx 'com.android.systemui'
           unzip -p "$APK" META-INF/xposed/java_init.list | grep -qx 'org.aquosr7.gradicon.Entry'
+          for file in app/src/main/res/drawable/gradicon_cellular_*_4_bar.xml; do
+            grep -Fq 'android:width="16.0dp"' "$file"
+            grep -Fq 'android:height="16.0dp"' "$file"
+          done
           for level in 1 2 3 4; do
             unzip -l "$APK" | grep -q "gradicon_wifi_${level}."
             unzip -l "$APK" | grep -q "gradicon_cellular_${level}_4_bar."
@@ -74,12 +78,12 @@ jobs:
             done
             test "$found" -eq 1
           done
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep -q "versionName='0.3.2'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep -q "versionName='0.3.3'"
           sha256sum "$APK" > app/build/outputs/apk/debug/SHA256SUMS.txt
       - name: Upload Vector APK
         uses: actions/upload-artifact@v4
         with:
-          name: AQUOS-R7-Gradicon-WiFi-Cellular-Vector-v0.3.2
+          name: AQUOS-R7-Gradicon-WiFi-Cellular-Vector-v0.3.3
           path: |
             app/build/outputs/apk/debug/app-debug.apk
             app/build/outputs/apk/debug/SHA256SUMS.txt
