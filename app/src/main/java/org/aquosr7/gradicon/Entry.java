@@ -13,50 +13,40 @@ import io.github.libxposed.api.XposedInterface;
 import io.github.libxposed.api.XposedModule;
 import io.github.libxposed.api.XposedModuleInterface.PackageReadyParam;
 
-/**
- * AQUOS R7 Gradicon Wi-Fi module.
- *
- * Replaces only framework ic_wifi_signal_1..4 when SystemUI applies them
- * to the status-bar view whose resource entry name is wifi_signal.
- * Level 0 and every other ImageView/resource are left untouched.
- */
 public final class Entry extends XposedModule {
     private static final String TAG = "AQUOSR7Gradicon";
     private static final String SYSTEM_UI = "com.android.systemui";
     private static final String WIFI_VIEW_ID = "wifi_signal";
+    private static final String CELLULAR_VIEW_ID = "mobile_signal";
 
     private Resources moduleResources;
 
     @Override
     public void onPackageReady(PackageReadyParam param) {
         if (!SYSTEM_UI.equals(param.getPackageName())) return;
-
         try {
             moduleResources = createModuleResources();
             Method method = ImageView.class.getDeclaredMethod("setImageResource", int.class);
             method.setAccessible(true);
-
             hook(method)
-                    .setId("aquosr7-gradicon-wifi-image-resource")
+                    .setId("aquosr7-gradicon-image-resource")
                     .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
                     .intercept(chain -> {
                         Object receiver = chain.getThisObject();
                         if (!(receiver instanceof ImageView)) return chain.proceed();
-
                         ImageView image = (ImageView) receiver;
-                        int frameworkResId = (Integer) chain.getArg(0);
-                        int replacement = getReplacement(image, frameworkResId);
+                        int sourceId = (Integer) chain.getArg(0);
+                        int replacement = getReplacement(image, sourceId);
                         if (replacement == 0) return chain.proceed();
-
                         Drawable drawable = moduleResources.getDrawable(replacement);
                         image.setImageDrawable(drawable.mutate());
-                        Log.i(TAG, "Applied Gradicon Wi-Fi resource=" + resourceName(image, frameworkResId));
+                        Log.i(TAG, "Applied Gradicon view=" + viewName(image)
+                                + " resource=" + resourceName(image, sourceId));
                         return null;
                     });
-
-            Log.i(TAG, "Hook installed for SystemUI; module resources loaded");
+            Log.i(TAG, "Hook installed; Wi-Fi and cellular resources loaded");
         } catch (Throwable t) {
-            Log.e(TAG, "Initialization failed; stock Wi-Fi icons remain active", t);
+            Log.e(TAG, "Initialization failed; stock status icons remain active", t);
         }
     }
 
@@ -74,23 +64,40 @@ public final class Entry extends XposedModule {
                 systemResources.getConfiguration());
     }
 
-    private int getReplacement(ImageView image, int frameworkResId) {
+    private int getReplacement(ImageView image, int sourceId) {
         if (moduleResources == null || image.getId() == View.NO_ID) return 0;
-
         try {
-            String viewName = image.getResources().getResourceEntryName(image.getId());
-            if (!WIFI_VIEW_ID.equals(viewName)) return 0;
-
-            String name = image.getResources().getResourceEntryName(frameworkResId);
-            switch (name) {
-                case "ic_wifi_signal_1": return R.drawable.gradicon_wifi_1;
-                case "ic_wifi_signal_2": return R.drawable.gradicon_wifi_2;
-                case "ic_wifi_signal_3": return R.drawable.gradicon_wifi_3;
-                case "ic_wifi_signal_4": return R.drawable.gradicon_wifi_4;
-                default: return 0;
+            String view = image.getResources().getResourceEntryName(image.getId());
+            String name = image.getResources().getResourceEntryName(sourceId);
+            if (WIFI_VIEW_ID.equals(view)) {
+                switch (name) {
+                    case "ic_wifi_signal_1": return R.drawable.gradicon_wifi_1;
+                    case "ic_wifi_signal_2": return R.drawable.gradicon_wifi_2;
+                    case "ic_wifi_signal_3": return R.drawable.gradicon_wifi_3;
+                    case "ic_wifi_signal_4": return R.drawable.gradicon_wifi_4;
+                    default: return 0;
+                }
+            }
+            if (CELLULAR_VIEW_ID.equals(view)) {
+                switch (name) {
+                    case "ic_signal_cellular_1_4_bar": return R.drawable.gradicon_cellular_1_4_bar;
+                    case "ic_signal_cellular_2_4_bar": return R.drawable.gradicon_cellular_2_4_bar;
+                    case "ic_signal_cellular_3_4_bar": return R.drawable.gradicon_cellular_3_4_bar;
+                    case "ic_signal_cellular_4_4_bar": return R.drawable.gradicon_cellular_4_4_bar;
+                    default: return 0;
+                }
             }
         } catch (Throwable ignored) {
             return 0;
+        }
+        return 0;
+    }
+
+    private String viewName(ImageView image) {
+        try {
+            return image.getResources().getResourceEntryName(image.getId());
+        } catch (Throwable ignored) {
+            return "unknown";
         }
     }
 
