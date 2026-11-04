@@ -38,8 +38,8 @@ No SystemUI.apk patching/replacement, partition flashing, or bootloader unlockin
 - [x] Iconify v7.3.0 source revision pinned
 - [x] Gradicon's two upstream overlay families identified
 - [x] Visual gallery added: 16 Wi-Fi + 36 cellular styles
-- [ ] Obtain AQUOS R7 target APK resource tables for exact compatibility mapping
-- [ ] Implement the minimal Gradicon overlay set (network/signal only)
+- [x] Obtain and audit AQUOS R7 SystemUI.apk + framework-res.apk resource tables
+- [ ] Trace cellular status-bar resource use and validate a product-partition RRO path
 - [ ] Build and inspect KernelSU ZIP
 - [ ] Validate on device
 - [ ] Start Stage 2 only after Stage 1 passes
