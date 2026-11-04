@@ -133,10 +133,12 @@ public final class Entry extends XposedModule {
                             Object result = chain.proceed();
                             Object receiver = chain.getThisObject();
                             Object argument = chain.getArg(0);
-                            if (receiver instanceof Drawable && argument instanceof ColorStateList) {
+                            if (receiver instanceof Drawable) {
                                 Drawable original = (Drawable) receiver;
-                                ColorStateList tint = (ColorStateList) argument;
-                                cellularTints.put(original, tint);
+                                ColorStateList tint = argument instanceof ColorStateList
+                                        ? (ColorStateList) argument : null;
+                                if (tint == null) cellularTints.remove(original);
+                                else cellularTints.put(original, tint);
                                 ImageView image = cellularViews.get(original);
                                 if (image != null) {
                                     Drawable current = image.getDrawable();
