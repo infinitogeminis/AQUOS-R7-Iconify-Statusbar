@@ -33,14 +33,16 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.7'
-      - name: Verify source targets live SignalDrawable and ImageView level updates
+      - name: Verify direct SignalDrawable level-change hook
         shell: bash
         run: |
           set -euo pipefail
           SRC="app/src/main/java/org/aquosr7/gradicon/Entry.java"
-          grep -Fq 'Drawable.class.getDeclaredMethod("setLevel", int.class)' "$SRC"
+          grep -Fq 'getDeclaredMethod("onLevelChange", int.class)' "$SRC"
+          grep -Fq 'aquosr7-gradicon-signal-on-level-change-' "$SRC"
           grep -Fq 'ImageView.class.getDeclaredMethod("setImageLevel", int.class)' "$SRC"
           grep -Fq 'aquosr7-gradicon-cellular-image-level' "$SRC"
+          grep -Fq 'SignalDrawable.onLevelChange packedLevel=' "$SRC"
           grep -Fq 'setImageDrawable' "$SRC"
           grep -Fq 'SignalDrawable' "$SRC"
           grep -Fq 'mobile_signal' "$SRC"
@@ -50,7 +52,7 @@ jobs:
           ! grep -Fq 'MOBILE_VIEW_CLASS_SUFFIX' "$SRC"
           grep -Fq 'getCellularReplacement' "$SRC"
           ! grep -Fq 'CELLULAR_VIEW_ID.equals(view)' "$SRC"
-          grep -Fq "versionName '0.3.4'" app/build.gradle
+          grep -Fq "versionName '0.3.5'" app/build.gradle
       - name: Build Vector module APK
         run: gradle --no-daemon :app:assembleDebug
       - name: Verify APK metadata, hook code and bundled resources
@@ -71,7 +73,7 @@ jobs:
             unzip -l "$APK" | grep -q "gradicon_wifi_${level}."
             unzip -l "$APK" | grep -q "gradicon_cellular_${level}_4_bar."
           done
-          for marker in 'aquosr7-gradicon-cellular-level' 'aquosr7-gradicon-cellular-image-level' 'SignalDrawable' 'Applied Gradicon cellular bars='; do
+          for marker in 'aquosr7-gradicon-signal-on-level-change-' 'aquosr7-gradicon-cellular-image-level' 'SignalDrawable' 'Applied Gradicon cellular bars='; do
             found=0
             for dex in classes.dex classes2.dex classes3.dex classes4.dex; do
               if unzip -Z1 "$APK" | grep -qx "$dex"; then
@@ -80,12 +82,12 @@ jobs:
             done
             test "$found" -eq 1
           done
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep -q "versionName='0.3.4'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep -q "versionName='0.3.5'"
           sha256sum "$APK" > app/build/outputs/apk/debug/SHA256SUMS.txt
       - name: Upload Vector APK
         uses: actions/upload-artifact@v4
         with:
-          name: AQUOS-R7-Gradicon-WiFi-Cellular-Vector-v0.3.4
+          name: AQUOS-R7-Gradicon-WiFi-Cellular-Vector-v0.3.5
           path: |
             app/build/outputs/apk/debug/app-debug.apk
             app/build/outputs/apk/debug/SHA256SUMS.txt
