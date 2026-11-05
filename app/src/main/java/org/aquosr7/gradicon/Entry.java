@@ -31,6 +31,8 @@ public final class Entry extends XposedModule {
             Collections.synchronizedMap(new WeakHashMap<>());
     private final Map<Drawable, ColorStateList> cellularTints =
             Collections.synchronizedMap(new WeakHashMap<>());
+    private final Map<ImageView, Drawable> stockCellularDrawables =
+            Collections.synchronizedMap(new WeakHashMap<>());
     private final Set<Class<?>> tintHooks =
             Collections.newSetFromMap(new WeakHashMap<>());
     private final Set<String> loggedCellularDrawableClasses =
@@ -101,6 +103,7 @@ public final class Entry extends XposedModule {
                         }
                         if (isStatusBarMobileSignal(image) && isSignalDrawable(drawable)) {
                             cellularViews.put(drawable, new WeakReference<>(image));
+                            stockCellularDrawables.put(image, drawable);
                             installTintHook(drawable.getClass());
                             applyCellularDrawable(drawable, image);
                             Log.i(TAG, "Bound SignalDrawable to status-bar mobile_signal");
@@ -124,6 +127,28 @@ public final class Entry extends XposedModule {
                     }
                     return result;
                 });
+        Method setImageLevel = ImageView.class.getDeclaredMethod("setImageLevel", int.class);
+        setImageLevel.setAccessible(true);
+        hook(setImageLevel)
+                .setId("aquosr7-gradicon-cellular-image-level")
+                .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
+                .intercept(chain -> {
+                    Object result = chain.proceed();
+                    Object receiver = chain.getThisObject();
+                    if (receiver instanceof ImageView) {
+                        ImageView image = (ImageView) receiver;
+                        if (isStatusBarMobileSignal(image)) {
+                            Drawable stock = stockCellularDrawables.get(image);
+                            if (stock != null) {
+                                int packedState = (Integer) chain.getArg(0);
+                                applyCellularDrawable(stock, image, packedState);
+                                Log.i(TAG, "Updated mobile_signal from ImageView.setImageLevel packedLevel=0x"
+                                        + Integer.toHexString(packedState));
+                            }
+                        }
+                    }
+                    return result;
+                });
         try {
             Class<?> signalClass = Class.forName(
                     "com.android.settingslib.graph.SignalDrawable", false,
@@ -132,7 +157,7 @@ public final class Entry extends XposedModule {
         } catch (Throwable t) {
             Log.w(TAG, "Could not preload AOSP SignalDrawable tint hook", t);
         }
-        Log.i(TAG, "Cellular hooks installed: ImageView binding + Drawable.setLevel");
+        Log.i(TAG, "Cellular hooks installed: ImageView binding + Drawable.setLevel + ImageView.setImageLevel");
     }
 
     private void installTintHook(Class<?> drawableClass) {
@@ -174,9 +199,13 @@ public final class Entry extends XposedModule {
     }
 
     private void applyCellularDrawable(Drawable signalDrawable, ImageView image) {
+        if (signalDrawable == null) return;
+        applyCellularDrawable(signalDrawable, image, signalDrawable.getLevel());
+    }
+
+    private void applyCellularDrawable(Drawable signalDrawable, ImageView image, int packedState) {
         if (moduleResources == null || image == null) return;
         try {
-            int packedState = signalDrawable.getLevel();
             int state = (packedState >>> 16) & 0xff;
             if (state != 0) {
                 if (image.getDrawable() != signalDrawable) image.setImageDrawable(signalDrawable);
