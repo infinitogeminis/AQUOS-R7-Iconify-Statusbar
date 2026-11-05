@@ -140,6 +140,7 @@ public final class Entry extends XposedModule {
                     }
                     return result;
                 });
+        installDrawableLevelHook();
         try {
             Class<?> signalClass = Class.forName(
                     "com.android.settingslib.graph.SignalDrawable", false,
@@ -149,6 +150,31 @@ public final class Entry extends XposedModule {
             logW("Could not preload AOSP SignalDrawable tint hook", t);
         }
         Log.i(TAG, "Cellular hooks installed: SignalDrawable.onLevelChange + ImageView.setImageLevel");
+    }
+
+
+    private void installDrawableLevelHook() throws Exception {
+        Method method = Drawable.class.getDeclaredMethod("setLevel", int.class);
+        method.setAccessible(true);
+        hook(method)
+                .setId("aquosr7-gradicon-drawable-set-level")
+                .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
+                .intercept(chain -> {
+                    Object result = chain.proceed();
+                    Object receiver = chain.getThisObject();
+                    if (receiver instanceof Drawable) {
+                        Drawable signal = (Drawable) receiver;
+                        ImageView image = getCellularView(signal);
+                        if (image != null) {
+                            int packedState = (Integer) chain.getArg(0);
+                            applyCellularDrawable(signal, image, packedState);
+                            logI("Drawable.setLevel mobile_signal packedLevel=0x"
+                                    + Integer.toHexString(packedState));
+                        }
+                    }
+                    return result;
+                });
+        logI("Drawable.setLevel hook installed");
     }
 
     private void installSignalLevelHook(Class<?> drawableClass) {
