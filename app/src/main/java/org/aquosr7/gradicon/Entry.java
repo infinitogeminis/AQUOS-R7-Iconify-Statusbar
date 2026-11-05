@@ -44,13 +44,16 @@ public final class Entry extends XposedModule {
     @Override
     public void onPackageReady(PackageReadyParam param) {
         if (!SYSTEM_UI.equals(param.getPackageName())) return;
+        logI("ENTRY_LOADED package=" + param.getPackageName()
+                + " framework=" + getFrameworkName()
+                + " version=" + getFrameworkVersion());
         try {
             moduleResources = createModuleResources();
             installWifiHook();
             installCellularHooks();
-            Log.i(TAG, "Initialized: Wi-Fi image hook + SignalDrawable cellular hooks");
+            logI("Initialized: Wi-Fi image hook + SignalDrawable cellular hooks");
         } catch (Throwable t) {
-            Log.e(TAG, "Initialization failed; stock status icons remain active", t);
+            logE("Initialization failed; stock status icons remain active", t);
         }
     }
 
@@ -68,7 +71,7 @@ public final class Entry extends XposedModule {
                     int replacement = getWifiReplacement(image, sourceId);
                     if (replacement != 0) {
                         image.setImageDrawable(moduleResources.getDrawable(replacement).mutate());
-                        Log.i(TAG, "Applied Gradicon Wi-Fi view=" + viewName(image));
+                        logI("Applied Gradicon Wi-Fi view=" + viewName(image));
                         return null;
                     }
                     int cellularReplacement = getCellularResourceReplacement(image, sourceId);
@@ -143,7 +146,7 @@ public final class Entry extends XposedModule {
                     Entry.class.getClassLoader());
             installTintHook(signalClass);
         } catch (Throwable t) {
-            Log.w(TAG, "Could not preload AOSP SignalDrawable tint hook", t);
+            logW("Could not preload AOSP SignalDrawable tint hook", t);
         }
         Log.i(TAG, "Cellular hooks installed: SignalDrawable.onLevelChange + ImageView.setImageLevel");
     }
@@ -152,7 +155,19 @@ public final class Entry extends XposedModule {
         synchronized (signalLevelHooks) {
             if (signalLevelHooks.contains(drawableClass)) return;
             try {
-                Method method = drawableClass.getDeclaredMethod("onLevelChange", int.class);
+                Class<?> owner = drawableClass;
+                Method method = null;
+                while (owner != null && method == null) {
+                    try {
+                        method = owner.getDeclaredMethod("onLevelChange", int.class);
+                    } catch (NoSuchMethodException ignored) {
+                        owner = owner.getSuperclass();
+                    }
+                }
+                if (method == null) {
+                    throw new NoSuchMethodException("onLevelChange(int) not found in "
+                            + drawableClass.getName() + " hierarchy");
+                }
                 method.setAccessible(true);
                 hook(method)
                         .setId("aquosr7-gradicon-signal-on-level-change-" + drawableClass.getName())
@@ -173,10 +188,10 @@ public final class Entry extends XposedModule {
                             return result;
                         });
                 signalLevelHooks.add(drawableClass);
-                Log.i(TAG, "SignalDrawable.onLevelChange hook installed: "
-                        + drawableClass.getName());
+                logI("SignalDrawable.onLevelChange hook installed: "
+                        + drawableClass.getName() + " owner=" + method.getDeclaringClass().getName());
             } catch (Throwable t) {
-                Log.e(TAG, "Could not hook SignalDrawable.onLevelChange: "
+                logE("Could not hook SignalDrawable.onLevelChange: "
                         + drawableClass.getName(), t);
             }
         }
@@ -361,5 +376,22 @@ public final class Entry extends XposedModule {
         } catch (Throwable ignored) {
             return "unknown";
         }
+    }
+
+    // LibXposed diagnostics are independent of ordinary Android log buffers.
+    private void logI(String message) {
+        log(Log.INFO, TAG, message);
+    }
+
+    private void logW(String message) {
+        log(Log.WARN, TAG, message);
+    }
+
+    private void logE(String message) {
+        log(Log.ERROR, TAG, message);
+    }
+
+    private void logE(String message, Throwable error) {
+        log(Log.ERROR, TAG, message, error);
     }
 }
