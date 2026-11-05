@@ -147,7 +147,7 @@ public final class Entry extends XposedModule {
                     Entry.class.getClassLoader());
             installTintHook(signalClass);
         } catch (Throwable t) {
-            logW("Could not preload AOSP SignalDrawable tint hook", t);
+            logW("Could not preload AOSP SignalDrawable tint hook: " + t);
         }
         Log.i(TAG, "Cellular hooks installed: SignalDrawable.onLevelChange + ImageView.setImageLevel");
     }
