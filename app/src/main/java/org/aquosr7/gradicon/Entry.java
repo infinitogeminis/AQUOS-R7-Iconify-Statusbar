@@ -35,6 +35,8 @@ public final class Entry extends XposedModule {
             Collections.synchronizedMap(new WeakHashMap<>());
     private final Set<Class<?>> tintHooks =
             Collections.newSetFromMap(new WeakHashMap<>());
+    private final Set<Class<?>> signalLevelHooks =
+            Collections.newSetFromMap(new WeakHashMap<>());
     private final Set<String> loggedCellularDrawableClasses =
             Collections.newSetFromMap(new java.util.concurrent.ConcurrentHashMap<String, Boolean>());
     private Resources moduleResources;
@@ -105,6 +107,7 @@ public final class Entry extends XposedModule {
                             cellularViews.put(drawable, new WeakReference<>(image));
                             stockCellularDrawables.put(image, drawable);
                             installTintHook(drawable.getClass());
+                            installSignalLevelHook(drawable.getClass());
                             applyCellularDrawable(drawable, image);
                             Log.i(TAG, "Bound SignalDrawable to status-bar mobile_signal");
                         }
@@ -112,21 +115,6 @@ public final class Entry extends XposedModule {
                     return result;
                 });
 
-        Method setLevel = Drawable.class.getDeclaredMethod("setLevel", int.class);
-        setLevel.setAccessible(true);
-        hook(setLevel)
-                .setId("aquosr7-gradicon-cellular-level")
-                .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
-                .intercept(chain -> {
-                    Object result = chain.proceed();
-                    Object receiver = chain.getThisObject();
-                    if (receiver instanceof Drawable) {
-                        Drawable drawable = (Drawable) receiver;
-                        ImageView image = getCellularView(drawable);
-                        if (image != null) applyCellularDrawable(drawable, image);
-                    }
-                    return result;
-                });
         Method setImageLevel = ImageView.class.getDeclaredMethod("setImageLevel", int.class);
         setImageLevel.setAccessible(true);
         hook(setImageLevel)
@@ -157,7 +145,41 @@ public final class Entry extends XposedModule {
         } catch (Throwable t) {
             Log.w(TAG, "Could not preload AOSP SignalDrawable tint hook", t);
         }
-        Log.i(TAG, "Cellular hooks installed: ImageView binding + Drawable.setLevel + ImageView.setImageLevel");
+        Log.i(TAG, "Cellular hooks installed: SignalDrawable.onLevelChange + ImageView.setImageLevel");
+    }
+
+    private void installSignalLevelHook(Class<?> drawableClass) {
+        synchronized (signalLevelHooks) {
+            if (signalLevelHooks.contains(drawableClass)) return;
+            try {
+                Method method = drawableClass.getDeclaredMethod("onLevelChange", int.class);
+                method.setAccessible(true);
+                hook(method)
+                        .setId("aquosr7-gradicon-signal-on-level-change-" + drawableClass.getName())
+                        .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
+                        .intercept(chain -> {
+                            Object result = chain.proceed();
+                            Object receiver = chain.getThisObject();
+                            if (receiver instanceof Drawable) {
+                                Drawable signal = (Drawable) receiver;
+                                ImageView image = getCellularView(signal);
+                                if (image != null) {
+                                    int packedState = (Integer) chain.getArg(0);
+                                    applyCellularDrawable(signal, image, packedState);
+                                    Log.i(TAG, "SignalDrawable.onLevelChange packedLevel=0x"
+                                            + Integer.toHexString(packedState));
+                                }
+                            }
+                            return result;
+                        });
+                signalLevelHooks.add(drawableClass);
+                Log.i(TAG, "SignalDrawable.onLevelChange hook installed: "
+                        + drawableClass.getName());
+            } catch (Throwable t) {
+                Log.e(TAG, "Could not hook SignalDrawable.onLevelChange: "
+                        + drawableClass.getName(), t);
+            }
+        }
     }
 
     private void installTintHook(Class<?> drawableClass) {
